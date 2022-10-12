@@ -91,7 +91,7 @@ It requires checkpoint *s* is the ancestor of checkpoint *t* in the checkpoint t
 
 - Supermajority Link *a -> b*: *a* and *b* both are checkpoints. When there are at least 2/3 validators’ deposit have voted that the *a* as the source and *b* as the target, then *a - > b* will be a supermajority link. Here, the height of *b* is greater than that of *a*. As shown in Figure 2, the red lines are two different supermajority links. 
 
-![](img/Aspose.Words.47cf15a1-66a5-413b-91da-51b86eea47ed.003.png)
+![image](https://user-images.githubusercontent.com/70004332/195276682-ee1bf16b-087a-4c1e-b033-7f1d5f3fee55.png)
 
 *Figure 2 - The supermajority link in the checkpoint tree(all nodes is checkpoints)* 
 
@@ -141,15 +141,15 @@ We adopt Agile development model into our project. We have divided our implement
 
 Regard each stage mentioned above as a sprint, and each sprint last 5 days. The burndown charts which can show our working progress of each sprint are shown in Figure 3: 
 
-![](img/Aspose.Words.47cf15a1-66a5-413b-91da-51b86eea47ed.004.png)![](img/Aspose.Words.47cf15a1-66a5-413b-91da-51b86eea47ed.005.png)
+![image](https://user-images.githubusercontent.com/70004332/195276762-567ccbd2-79fb-44f9-841f-d124fc262309.png)
+![image](https://user-images.githubusercontent.com/70004332/195276807-c915b368-d6b3-4f7d-87b0-9fdea0079321.png)
 
-![](img/Aspose.Words.47cf15a1-66a5-413b-91da-51b86eea47ed.006.png)![](img/Aspose.Words.47cf15a1-66a5-413b-91da-51b86eea47ed.007.png)
 
 *Figure 3 – Burndown Chart* 
 
 #### 4-4-4. Implementation Details
 
-![](img/Aspose.Words.47cf15a1-66a5-413b-91da-51b86eea47ed.008.png)
+![image](https://user-images.githubusercontent.com/70004332/195276854-b296f898-f0c9-4c2f-af22-005488d56ae7.png)
 
 *Figure 4 – Class Diagram* All discussion below is based on the Class Diagram in Figure 4. 
 
@@ -159,19 +159,17 @@ There are three main characters in our application, user, miner, and validator. 
 
 **User:**  Each user has a unique username which is public key, and a private key which is used to do signature. All the functions related to key are provided in file Key.py. And the MessageValidator is used by user to validate the signature on received message. User can transfer coins to others by submit transaction. The sequence chart in Figure 5 can show the process.  
 
-![](img/Aspose.Words.47cf15a1-66a5-413b-91da-51b86eea47ed.009.png)
+![image](https://user-images.githubusercontent.com/70004332/195276897-1f32d928-4987-44f4-afe3-d8fbf012b2d1.png)
 
 *Figure 5 – Transaction Sequence Chart* 
 
 **Miner:**  Miners can package selected transactions into block and computing block hash under the PoW algorithm. The PoW algorithm is defined in file Pow.py, the difficulty attribute inside it can decide difficulty of the algorithm. Since the block hash has been computed, miner can proposal this block to other nodes. After the block is validated and status as finality, a reward will be acquired by related miner. The reward transaction is packaged into the proposal block when the miner generate the block. The sequence chart of mining block is shown in Figure 6.  
-
-![](img/Aspose.Words.47cf15a1-66a5-413b-91da-51b86eea47ed.010.png)
+![image](https://user-images.githubusercontent.com/70004332/195276922-eeefe8ce-ab11-4cd4-83fd-2c7d8e2a4eac.png)
 
 *Figure 6 – Mine Block Sequence Chart* 
 
 **Validator:**  Validator can accept and record blocks and generate checkpoint when the height of block reaches the checkpoint epoch time. When a checkpoint be created, validator will proposal a supermajority link by generating a vote. Each validator can only produce a vote at each epoch. The target in the vote should be the newest generated checkpoint and the source in the vote should be the current highest justified checkpoint. After generating the vote, validator will broadcast the vote to other nodes. Since a validate receive a vote, the vote will be counted in a counter which is provided by file Counter.py and the slashing conditions and voter’s identification will also be validated . If a supermajority link reach 2/3 votes, the source checkpoint and target checkpoint will be evaluated. The voting process is shown in the Figure 7. 
-
-![](img/Aspose.Words.47cf15a1-66a5-413b-91da-51b86eea47ed.011.png)
+![image](https://user-images.githubusercontent.com/70004332/195276951-49fd76fb-001b-4727-b112-5aed1982b21f.png)
 
 *Figure 7 – Vote Supermajority Link Sequence Chart* 
 
@@ -187,7 +185,7 @@ The Dynasty defined the validator set which contain validators who can do vote. 
 
 The web application is a HTML page which generate by python script, it can interact with the provided APIs which defined in generator.py file. The representation of this web page is shown in Figure 8. Different color present different identity, for example, the orange block means finalized checkpoint. If you traverse the main chain from head to root, you will only find a unique path which pass all finalized checkpoint.  
 
-![](img/Aspose.Words.47cf15a1-66a5-413b-91da-51b86eea47ed.012.png)
+![image](https://user-images.githubusercontent.com/70004332/195276979-61871b93-a38b-452f-9994-0e5beffa0ddd.png)
 
 *Figure 8 – Web page* 
 
