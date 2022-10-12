@@ -2,45 +2,31 @@ import socket
 import time
 import threading
 import json
+from message.message import createCheckpoint,createVote
+from key.signature import sign, validateSignature
 
 """
-Author : Maurice Snoeren <macsnoeren(at)gmail.com>
-Version: 0.3 beta (use at your own risk)
-Date: 7-5-2020
-
-Python package p2pnet for implementing decentralized peer-to-peer network applications
+Class Description: This class is used to establish the real TCP/IP socket connection by the class Node with other node
 """
-
-
 class NodeConnection(threading.Thread):
-    """The class NodeConnection is used by the class Node and represent the TCP/IP socket connection with another node. 
-       Both inbound (nodes that connect with the server) and outbound (nodes that are connected to) are represented by
-       this class. The class contains the client socket and hold the id information of the connecting node. Communication
-       is done by this class. When a connecting node sends a message, the message is relayed to the main node (that created
-       this NodeConnection in the first place).
-
-       Instantiates a new NodeConnection. Do not forget to start the thread. All TCP/IP communication is handled by this
-       connection.
-        main_node: The Node class that received a connection.
-        sock: The socket that is assiociated with the client connection.
-        id: The id of the connected node (at the other side of the TCP/IP connection).
-        host: The host/ip of the main node.
-        port: The port of the server of the main node."""
-
+    """
+    Method Description: Initialize a instance of NodeConnection
+    Parameters: character: the Miner class, that is the role corresponding to the node
+                main_node: the node class, to received a connection
+                sock     : the socket, to associated with the client connection.
+                id       : the unique id for the connected node, which is the target side of connection
+                host and port: the host/ip and port of the main node
+    """
     def __init__(self, character, main_node, sock, id, host, port):
-        """Instantiates a new NodeConnection. Do not forget to start the thread. All TCP/IP communication is handled by this connection.
-            main_node: The Node class that received a connection.
-            sock: The socket that is assiociated with the client connection.
-            id: The id of the connected node (at the other side of the TCP/IP connection).
-            host: The host/ip of the main node.
-            port: The port of the server of the main node."""
 
         super(NodeConnection, self).__init__()
-
+        # Store the receive transactions message
         self.receive_transactions = []
 
+        # The corresponding role for the node
         self.character = character
 
+        #the main node's host and port information
         self.host = host
         self.port = port
         self.main_node = main_node
@@ -64,42 +50,40 @@ class NodeConnection(threading.Thread):
     Input: data : the send data, which can be str,dict or bytes objects.
            encoding_type : using utf-8/ascii to decode the packets ate the other node.
     '''
-
     def send(self, data, encoding_type='utf-8'):
 
-        if isinstance(data, str):
+        if isinstance(data, str):  # the send data is str type
             self.sock.sendall(data.encode(encoding_type) + self.EOT_CHAR)  # using end of transmission character
-        elif isinstance(data, dict):
+        elif isinstance(data, dict):  # the send data is dict type
             try:
                 # data is converted to JSON that is send over to the other node
                 json_data = json.dumps(data)
                 json_data = json_data.encode(encoding_type) + self.EOT_CHAR
                 self.sock.sendall(json_data)
-
             except TypeError as type_error:
                 print('This dict is invalid')
             except Exception as e:
                 print('Unexpected Error in send message')
-        elif isinstance(data, bytes):
+        elif isinstance(data, bytes):  # the send data is bytes type
             bin_data = data + self.EOT_CHAR
             self.sock.sendall(bin_data)
         else:
             print('datatype used is not valid plese use str, dict (will be send as json) or bytes')
 
-    # This method should be implemented by yourself! We do not know when the message is
-    # correct.
+
     def check_message(self, data):
         return True
 
-    '''Stop the node client. Please make sure you join the thread. '''
-
+    '''
+    Method description : Stop the node client. 
+    '''
     def stop(self):
         self.terminate_flag.set()
 
     '''
-    decode the packet, and return the data
+    Method description: decode the packet
+    Return: the decoded data
     '''
-
     def decode_packet(self, packet):
         try:
             packet_decoded = packet.decode('utf-8')
@@ -111,23 +95,19 @@ class NodeConnection(threading.Thread):
             return packet
 
     '''
-    Required to implement the Thread. This is the main loop of the node client.
-    In this method, the thread waits to receive data from another node.
+    Method description: The main loop of the node client, the thread waits to receive data from another node.
     '''
-
     def run(self):
-        """The main loop of the thread to handle the connection with the node. Within the
-           main loop the thread waits to receive data from the node. If data is received 
-           the method node_message will be invoked of the main node to be processed."""
+
         self.sock.settimeout(10.0)
         buffer = b''  # Hold the stream that comes in!
 
         while not self.terminate_flag.is_set():
             chunk = b''
 
+            # to receive the data
             try:
                 chunk = self.sock.recv(4096)
-
             except socket.timeout:
                 self.main_node.debug_print("NodeConnection: timeout")
 
@@ -136,113 +116,61 @@ class NodeConnection(threading.Thread):
                 self.main_node.debug_print('Unexpected error')
                 self.main_node.debug_print(e)
 
-            # BUG: possible buffer overflow when no EOT_CHAR is found => Fix by max buffer count or so?
+            # the data is received
             if chunk != b'':
                 buffer += chunk
-                eot_pos = buffer.find(self.EOT_CHAR)
+                eot_pos = buffer.find(self.EOT_CHAR) # find the end character in buffer
                 while eot_pos > 0:
-                    packet = buffer[:eot_pos]  # 去掉end character
+                    packet = buffer[:eot_pos]  # cut end character
                     buffer = buffer[eot_pos + 1:]
                     data = self.decode_packet(packet)
 
-                    # if data != "" and type(data).__name__ != "dict":
-                    #     try:
-                    #         data = json.loads(data)
-                    #     except:
-                    #         print("!!!!!!!!!!!!!!!!!!!")
-                    #         print(data)
-                    # 去重
+                    # duplicate removal: Remove the repeated received message
                     if data != "" and data != None:
-                        # self.main_node.receive_block.append(data)
-                        # # 发送给相邻的结点
-                        # self.main_node.send_to_nodes(data)
-                        # eot_pos = buffer.find(self.EOT_CHAR)
 
-                        # TODO: 判断收到的data是什么类型的
-                        # if isinstance(self.miner, Miner):
-
-                        # self.main_node.message_count_recv += 1
-                        #
-                        # # print("run (receive_data) Method：node_message from " + self.id + ": " + str(data))
-                        # # print("")
-                        #
-                        # self.main_node.receive_block.append(data)
-                        # # self.main_node.send_to_nodes(data)
-                        # eot_pos = buffer.find(self.EOT_CHAR)
-
+                        # Determine the type of data received
+                        # receive a new block message with string 'new_block'
                         if data not in self.main_node.receive_blocks and 'new_block' in data.keys():
                             self.main_node.message_count_recv += 1
                             self.main_node.receive_blocks.append(data)
 
                             block = json.loads(data["new_block"])
-
-                            # accept block
+                            # invoke the method to accept block for miner character
                             ask_block_hash = self.character.acceptBlock(block)
 
                             if ask_block_hash != None:
+                                # ask the pre block hash
                                 self.main_node.send_to_node(self, {
                                     "ask_block": ask_block_hash})
 
-
+                        # receive a vote message with string 'vote'
                         elif data not in self.main_node.receive_votes and 'vote' in data.keys():
                             self.main_node.message_count_recv += 1
                             self.main_node.receive_votes.append(data)
+
                             vote = json.loads(data["vote"])
 
-                            # accept vote
+                            # invoke the method to check weather accept vote message
                             ask_block_hash = self.character.validator.acceptVote(vote)
 
                             # if the vote epoch can be found in history vote, response with your history vote
                             if vote["vote_information"]["target_epoch"] in self.character.validator.vote_history:
                                 self.main_node.send_to_node(self, {"vote": json.dumps(self.character.validator.vote_history[vote["vote_information"]["target_epoch"]])})
 
-                            # ask for block
+                            # ask for block if the target or source Related vote is not existed in the recorded history
                             if ask_block_hash != None:
                                 self.main_node.send_to_node(self, {
                                     "ask_block": ask_block_hash})
-
+                        # receive asking a block message with string 'ask_block' to ask the new block
                         elif 'ask_block' in data.keys():
-                            print("ask")
+                            print("Receive thr ask_block messgae")
                             block_hash = data["ask_block"]
                             if block_hash in self.character.block_set:
                                 self.main_node.send_to_node(self, {"new_block": json.dumps(self.character.block_set[block_hash])})
 
-                        elif 'join_request' in data.keys():
-                            applicant = data["join_request"]
-                            # dynasty_epoch = data["dynasty_epoch"]
-                            # if dynasty_epoch == self.character.counter.dynasty.current_epoch:
-                            if self.character.user.username in self.character.counter.dynasty.dynasties[self.character.counter.dynasty.current_epoch][1]:
-                                if self.character.counter.dynasty.joinDynasty(applicant):
-                                    self.main_node.send_to_nodes({
-                                                                    "join_response": True,
-                                                                    "dynasties": json.dumps(self.character.counter.dynasty.dynasties),
-                                                                    "current_epoch": self.character.counter.dynasty.current_epoch,
-                                                                    "join_community": json.dumps(self.character.counter.join_community),
-                                                                    "deposit_bank": json.dumps(self.character.counter.deposit_bank),
-                                                                    "withdraw_delay": self.character.counter.withdraw_delay,
-                                                                    "penalty": json.dumps(self.character.counter.penalty)
-                                                                })
-
-                        elif 'join_response' in data.keys():
-                            dynasties = data["dynasties"]
-                            join_community = data["join_community"]
-                            deposit_bank = data["deposit_bank"]
-                            withdraw_delay = data["withdraw_delay"]
-                            penalty = data["penalty"]
-                            # dynasty_epoch = data["dynasty_epoch"]
-                            self.character.counter.dynasty.dynasties = dynasties
-                            self.character.counter.dynasty.join_community = join_community
-                            self.character.counter.dynasty.deposit_bank = deposit_bank
-                            self.character.counter.dynasty.withdraw_delay = withdraw_delay
-
-                            self.character.counter.penalty = penalty
-                            return
-
                         eot_pos = buffer.find(self.EOT_CHAR)
 
             time.sleep(0.01)
-
-        # IDEA: Invoke (event) a method in main_node so the user is able to send a bye message to the node before it is closed?
 
         self.sock.settimeout(None)
         self.sock.close()

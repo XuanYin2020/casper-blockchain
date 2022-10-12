@@ -1,10 +1,6 @@
 '''
-TODO: 未完成（难，优先度低）
-动态的validator set的生成机制
+dynamic validator set change
 new validators to join and existing validators to leave
-#first version: finished
-#second version: deposit mechanism and first dynasty initialization finished
-#third verison: transaction need to do
 '''
 import copy
 import logging
@@ -35,7 +31,7 @@ class Dynasty:
             logger.warning('warning: validator %s please pay the deposit' % validator_address)
             return
 
-        # 如果曾经加入过，就再也不能加入了
+        # A validator cannot join anymore if he/she has joined before even he/she has already quit
         if validator_address not in self.join_community:
             self.deposit_bank[validator_address] = [deposit, self.current_epoch]
             self.dynasties[self.current_epoch + 2][0].append(validator_address)
@@ -65,72 +61,18 @@ class Dynasty:
         '''
         func: dynasty change
         '''
+        # change epoch which is the number of finalized checkpoints
         self.current_epoch += 1
-
         self.dynasties.append([[], [], []])
-
+        # get current dynasty
         current_dynasty = self.dynasties[self.current_epoch]
-        previous_dynasty = self.dynasties[self.current_epoch - 1]
 
+        # read the message in previous dynasty
+        previous_dynasty = self.dynasties[self.current_epoch - 1]
         previous_new = set(copy.deepcopy(previous_dynasty[0]))
         previous_og = set(copy.deepcopy(previous_dynasty[1]))
 
+        # update the message in current dynasty
         current_retire = set(copy.deepcopy(current_dynasty[2]))
         current_og = list(previous_og.union(previous_new) - current_retire)
-
         current_dynasty[1] = current_og
-        #
-        # self.dynasties.append(copy.deepcopy(self.dynasties[-1]))
-        # # new validator move to expert validator
-        # new_people = copy.deepcopy(self.dynasties[-1][0])
-        # # print(self.dynasties[-1][1])
-        # # print(new_people)
-        # # self.dynasties[-1][1]=new_people
-        # for validatorAddress in new_people:
-        #     self.dynasties[-1][1].append(validatorAddress)
-        # self.dynasties[-1][0].clear()
-        # # print('current bank',self.deposit_bank)
-        # removed_key = []
-        # for k,v in self.deposit_bank.items():
-        #     # print('-----------',k,v)
-        #     if v[1] == self.current_epoch:
-        #         removed_key.append(k)
-        # if removed_key:
-        #     for key in removed_key:
-        #         self.deposit_bank.pop(key)
-        #     removed_key = []
-        #
-
-# if __name__ == '__main__':
-#     a = Dynasty()
-#     #------join
-#     a.join(1,10)
-#     a.join(2,10)
-#     a.join(3,0)
-#     print('current dynasty ',a.current_epoch,'total dynasty',a.dynasties)
-#     print('deposit bank ',a.deposit_bank)
-#     #------dynastyChange
-#     a.dynastyChange()
-#     print('current dynasty ',a.current_epoch,'total dynasty',a.dynasties)
-#     # #------
-#     a.join(4,22)
-#     print('current dynasty ',a.current_epoch,'total dynasty',a.dynasties)
-#     print('deposit bank ', a.deposit_bank)
-#     # #------wrong quit
-#     a.quit(5)
-#     print(a.dynasties)
-#     # #------right quit
-#     a.quit(1)
-#     print('current dynasty ',a.current_epoch,'total dynasty',a.dynasties)
-#     print('deposit bank ', a.deposit_bank)
-#     # #------dynasty change
-#     a.dynastyChange()
-#     print('current dynasty ',a.current_epoch,'total dynasty',a.dynasties)
-#     print('deposit bank ', a.deposit_bank)
-#     a.dynastyChange()
-#     print('current dynasty ', a.current_epoch, 'total dynasty', a.dynasties)
-#     print('deposit bank ', a.deposit_bank)
-#     a.dynastyChange()
-#     print('current dynasty ', a.current_epoch, 'total dynasty', a.dynasties)
-#     print('deposit bank ', a.deposit_bank)
-#     print(a.join_community)

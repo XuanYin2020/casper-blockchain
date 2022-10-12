@@ -4,15 +4,30 @@ Generate user set, miners set and validators set
 1. network server
 2. 用于规模测试，创建用户集合，矿工集合和验证者集合
 '''
+import os
+import sys
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(BASE_DIR)
 
 from key.ecdsaKey import generate_ECDSA_keys
 from character.user import User
 from character.miner import Miner
 from flask import Flask, jsonify
-from configuration.generalParameters import INIT_DYNASTY
+from configuration.generalParameters import MINERS_SIZE, INIT_DYNASTY
+from message.message import createVote
+from key.signature import sign
+import json
 
-# 初始化miner
-miner_size = 6
+# func for connect with other miner node. Fully connects here
+def complete_connect(miners):
+    for i in range(0, len(miners)):
+        for j in range(0, len(miners)):
+            connect_host = miners[j].node.host
+            connect_port = miners[j].node.port
+            miners[i].node.connect_node(connect_host, connect_port)
+
+# int miner, each miner is also a validator
+miner_size = MINERS_SIZE
 miners = []  # miner
 ip_address = "127.0.0.1"
 port_start = 8000
@@ -23,42 +38,21 @@ for i in range(miner_size):
     miner = Miner(user, ip_address, port_start + i)
     miner.start()
     miners.append(miner)
-print("-------------------------------------------------")
-
-
-def complete_connect(miners):
-    for i in range(0, len(miners)):
-        for j in range(0, len(miners)):
-            connect_host = miners[j].node.host
-            connect_port = miners[j].node.port
-            miners[i].node.connect_node(connect_host, connect_port)
-
 
 # connect with other miner node
 complete_connect(miners)
-# for i in range(len(miners)):
-#     if i < len(miners) - 1:
-#         miners[i].node.connect_node(ip_address, port_start + i + 1)
-#     else:
-#         miners[i].node.connect_node(ip_address, port_start)
 
+# each miners start mine
 for each in miners:
     each.startMine()
 
+# Create APIs
 app = Flask(__name__, static_url_path="")
 
-
-@app.route('/blocks', methods=['GET'])
-def get_blocks():
-    sets = {}
-    for each in miners:
-        sets[each.user.username] = each.block_set
-    response = {
-        'miners': sets
-    }
-    return jsonify(response), 200
-
-
+'''
+    Path: /receive
+    Desc: return the number of blocks and votes have received 
+'''
 @app.route('/receive', methods=['GET'])
 def get_receives():
     sets = {}
@@ -72,7 +66,10 @@ def get_receives():
     }
     return jsonify(response), 200
 
-
+'''
+    Path: /all_ndoes
+    Desc: return the connection of nodes 
+'''
 @app.route('/all_ndoes', methods=['GET'])
 def get_all_ndoes():
     sets = {}
@@ -83,7 +80,10 @@ def get_all_ndoes():
     }
     return jsonify(response), 200
 
-
+'''
+    Path: /head
+    Desc: return the head of nodes 
+'''
 @app.route('/heads', methods=['GET'])
 def get_heads():
     sets = {}
@@ -96,17 +96,10 @@ def get_heads():
     return jsonify(response), 200
 
 
-@app.route('/status', methods=['GET'])
-def get_status():
-    sets = {}
-    for each in miners:
-        sets[each.user.username] = {"isStart": each.isStart, "continue": each.pow._continue}
-    response = {
-        'miners': sets
-    }
-    return jsonify(response), 200
-
-
+'''
+    Path: /checkpoint
+    Desc: return all checkpoints of nodes 
+'''
 @app.route('/checkpoints', methods=['GET'])
 def get_checkpoints():
     sets = {}
@@ -117,16 +110,55 @@ def get_checkpoints():
     }
     return jsonify(response), 200
 
+'''
+    Path: /blocktree
+    Desc: return all blocks of nodes 
+'''
 @app.route('/blocktree', methods=['GET'])
 def get_blocktree():
     sets = {}
     for each in miners:
-        sets[each.user.username] = each.block_set
+        sets[each.user.username] = {}
+        head = each.highest_justified_checkpoint['hash']
+
+        for blockhash in each.block_set:
+            previous_hash = each.block_set[blockhash]['block_information']['previous_hash']
+            hash = each.block_set[blockhash]['hash']
+
+            height = each.block_set[blockhash]['height']
+            sets[each.user.username][blockhash]={}
+            sets[each.user.username][blockhash]['dynasty'] = each.counter.dynasty.dynasties[
+                each.counter.dynasty.current_epoch]
+            sets[each.user.username][blockhash]['receive'] = {"receive_blocks": len(each.node.receive_blocks),
+                                                              "receive_votes": len(each.node.receive_votes)}
+            sets[each.user.username][blockhash]['penalty'] = each.counter.penalty
+            sets[each.user.username][blockhash]['connection'] = (each.node.message_count_recv, str(each.node.all_nodes()))
+
+            sets[each.user.username][blockhash]['previous_hash'] = previous_hash
+            sets[each.user.username][blockhash]['hash'] = hash
+            sets[each.user.username][blockhash]['height'] = height
+            attribute = ''
+            if height%5 != 0:
+                attribute = 'block'
+                sets[each.user.username][blockhash]['attribute'] = attribute
+            elif blockhash in each.checkpoint_set:
+                if blockhash == head:
+                    attribute = 'head'
+                else:
+                    attribute = each.checkpoint_set[blockhash]['attribute']
+                # attribute = each.checkpoint_set[blockhash]['attribute']
+                sets[each.user.username][blockhash]['attribute'] = attribute
+            sets[each.user.username][blockhash]['value'] = [height,attribute]
     response = {
-        'miners': sets
+        'blocks': sets
     }
     return jsonify(response), 200
 
+
+'''
+    Path: /counts
+    Desc: return all vote counts of nodes 
+'''
 @app.route('/counts', methods=['GET'])
 def get_counts():
     sets = {}
@@ -145,6 +177,10 @@ def get_counts():
     return jsonify(response), 200
 
 
+'''
+    Path: /history
+    Desc: return recorded vote history counts of nodes 
+'''
 @app.route('/history', methods=['GET'])
 def get_history():
     sets = {}
@@ -155,7 +191,10 @@ def get_history():
     }
     return jsonify(response), 200
 
-
+'''
+    Path: /penalty
+    Desc: return penalty recorded in each nodes 
+'''
 @app.route('/penalty', methods=['GET'])
 def get_penalty():
     sets = {}
@@ -167,6 +206,10 @@ def get_penalty():
     return jsonify(response), 200
 
 
+'''
+    Path: /dynasty
+    Desc: return current dynasty of each nodes
+'''
 @app.route('/dynasty', methods=['GET'])
 def get_dynasty():
     sets = {}
@@ -180,6 +223,10 @@ def get_dynasty():
     return jsonify(response), 200
 
 
+'''
+    Path: /highestJustifiedCheckpoint
+    Desc: return highest justified checkpoint of  each nodes 
+'''
 @app.route('/highestJustifiedCheckpoint', methods=['GET'])
 def get_highest_justified_checkpoint():
     sets = {}
@@ -225,6 +272,10 @@ def checkDependencies():
     return jsonify(response), 200
 
 
+'''
+    Path: /blockTreeLen
+    Desc: return some information for debug
+'''
 @app.route('/blockTreeLen', methods=['GET'])
 def get_blockTreeLen():
     sets = {}
@@ -246,6 +297,10 @@ def get_blockTreeLen():
     }
     return jsonify(response), 200
 
+'''
+    Path: /add
+    Desc: add a new validator
+'''
 @app.route('/add', methods=['GET'])
 def add():
     publickey, private_key = generate_ECDSA_keys()
@@ -263,40 +318,13 @@ def add():
     }
     return jsonify(response), 200
 
-@app.route('/check_main_chain', methods=['GET'])
-def check_main_chain():
-    same = True
-    length = len(miners)
-    for i in range(len(miners[0].main_chain)):
-        for j in range(length - 1):
-            if miners[j].main_chain[i] != miners[j + 1].main_chain[i]:
-                same = False
-    sets = {}
-    for _miner in miners:
-        sets[_miner.user.username] = True
-        for i in range(len(_miner.main_chain)):
-            if _miner.block_set[_miner.main_chain[i]]["height"] != i:
-                height = _miner.block_set[_miner.main_chain[i]]["height"]
-                sets[_miner.user.username] = False
-            if i > 0:
-                if _miner.block_set[_miner.main_chain[i]]["block_information"]["previous_hash"] != _miner.main_chain[
-                    i - 1]:
-                    sets[_miner.user.username] = False
-    response = {
-        "same": same,
-        'miners': sets,
-        "main_chain": miners[0].main_chain
-    }
-    return jsonify(response), 200
-
 @app.route('/bad_vote', methods=['GET'])
 def bad_vote():
-    self.validator.generateVote(checkpoint)
-    response = {
-        "same": same,
-        'miners': sets,
-        "main_chain": miners[0].main_chain
-    }
-    return jsonify(response), 200
+    miner = miners[0]
+    source = miner.root_checkpoint
+    target = miner.highest_justified_checkpoint
+
+    vote = createVote(source["vote_information"]["source_hash"], target["vote_information"]["target_hash"], source["vote_information"]["source_epoch"], target["vote_information"]["target_epoch"], miner.user.username)
+    vote["signature"] = sign(miner.user.privkey, json.dumps(vote["vote_information"]))
 
 app.run(host='0.0.0.0', port=5000)

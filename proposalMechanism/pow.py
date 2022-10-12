@@ -25,7 +25,13 @@ class proofOfWork:
     def stopMatch(self):
         self._continue += 1
 
-    # Comput hash according to the difficulty
+
+    '''
+    Method description: Compute hash according to the difficulty
+    Parameters: block_information: the block's information
+    Return: the hash value, and the proof value
+    '''
+    #
     def mine(self, block_information):
         proof = 1
         while self._continue == 0:

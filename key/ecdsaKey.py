@@ -4,6 +4,10 @@
 import base64
 import ecdsa
 
+"""
+Method Description: generate the public key and private key 
+Return:the public key and private key 
+"""
 def generate_ECDSA_keys():
     sk = ecdsa.SigningKey.generate(curve=ecdsa.SECP256k1) #this is your sign (private key)
     private_key = sk.to_string().hex() #convert your private key to hex
