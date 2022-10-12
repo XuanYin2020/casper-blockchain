@@ -72,7 +72,8 @@ Casper algorithm, like other consensus algorithms, aims to justify and finalize 
 
 In Casper, the proposal mechanism is similar to the PoW algorithm, and this mechanism will propose blocks and generate the underlying block tree. Meantime, Casper will propose and maintain an additional side tree, which is a checkpoint tree upon the existing block tree. The essence of the checkpoint here is still a block in the underlying block tree. As shown in Figure 1, the root in the block tree is called genesis block, and it is also used in the checkpoint tree to expand as root. For the checkpoint tree, the epoch is set to *k* which means that every block whose height *h* is a multiple of *k* will be proposed as a checkpoint. The hash of checkpoint is the original hash of related block and the height of checkpoint is set as *h/k*. As in Figure 1, the value of *k* is 3 and the red blocks are checkpoints. The formation and maintenance of the checkpoint tree mean that Casper not only maintains the block tree but also maintains a subtree of checkpoints. 
 
-![](img/Aspose.Words.47cf15a1-66a5-413b-91da-51b86eea47ed.001.png)
+![image](https://user-images.githubusercontent.com/70004332/195276502-79477b1b-2d36-4a86-9e29-9aa4d116c956.png)
+
 
 *Figure 1 - The checkpoint tree discovered from block tree* 
 
@@ -82,7 +83,7 @@ Any user can be a validator by depositing a minimal number of coins and acquire 
 
 For each validator, it can put forward a vote message and broadcast it to other validators. Here, only checkpoints can be involved in vote message. The vote message of validator *v* is normally written as *(s, t, h(s), h(t))*, and the information contained is shown in Table 1.  
 
-![](img/Aspose.Words.47cf15a1-66a5-413b-91da-51b86eea47ed.002.png)
+![image](https://user-images.githubusercontent.com/70004332/195276563-3e1f1d5a-2c17-41c0-8db8-18a7d879ef5c.png)
 
 *Table 1 - The vote message* 
 
